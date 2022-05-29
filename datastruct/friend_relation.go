@@ -7,11 +7,11 @@ import (
 )
 
 type FriendRelation struct {
-	UserId      string    `json:"user_id"      db:"user_id"      validate:"required"`
-	FriendId    string    `json:"friend_id"    db:"friend_id"    validate:"required"`
-	Accepted    bool      `json:"accepted"     db:"accepted"`
-	RequestedAt time.Time `json:"requested_at" db:"requested_at" validate:"required"`
-	AcceptedAt  time.Time `json:"accepted_at"  db:"accepted_at"`
+	UserId      string    `db:"user_id"      validate:"required"`
+	FriendId    string    `db:"friend_id"    validate:"required"`
+	Accepted    bool      `db:"accepted"`
+	RequestedAt time.Time `db:"requested_at" validate:"required"`
+	AcceptedAt  time.Time `db:"accepted_at"`
 }
 
 func (fr FriendRelation) ToGRPCFriendRelation() *rg.FriendRelation {

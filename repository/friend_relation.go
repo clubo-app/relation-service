@@ -13,22 +13,29 @@ import (
 )
 
 const (
-	TABLE_NAME string = "friend_relations"
+	FRIEND_RELATIONS string = "friend_relations"
+	FRIEND_COUNT     string = "friend_count"
 )
 
+var friendCountMetadata = table.Metadata{
+	Name:    FRIEND_COUNT,
+	Columns: []string{"user_id", "friend_count"},
+	PartKey: []string{"user_id"},
+}
 var friendRelationMetadata = table.Metadata{
-	Name:    TABLE_NAME,
+	Name:    FRIEND_RELATIONS,
 	Columns: []string{"user_id", "friend_id", "accepted", "requested_at", "accepted_at"},
 	PartKey: []string{"user_id", "accepted", "friend_id"},
 }
-var friendRelationTable = table.New(friendRelationMetadata)
 
 type FriendRelationRepository interface {
 	CreateFriendRequest(ctx context.Context, fr datastruct.FriendRelation) error
+	DeclineFriendRequest(ctx context.Context, uId, fId string) error
 	AcceptFriendRequest(ctx context.Context, uId, fId string) error
 	RemoveFriendRelation(ctx context.Context, uId, fId string) error
 	GetFriendRelation(ctx context.Context, uId, fId string) (datastruct.FriendRelation, error)
 	GetFriendsOfUser(ctx context.Context, uId string, page []byte, limit uint32) ([]datastruct.FriendRelation, []byte, error)
+	GetFriendCount(ctx context.Context, uId string) (datastruct.FriendCount, error)
 }
 
 type friendRelationRepository struct {
@@ -43,7 +50,7 @@ func (r *friendRelationRepository) CreateFriendRequest(ctx context.Context, fr d
 	}
 
 	stmt, names := qb.
-		Insert(TABLE_NAME).
+		Insert(FRIEND_RELATIONS).
 		Unique().
 		Columns(friendRelationMetadata.Columns...).
 		ToCql()
@@ -59,9 +66,32 @@ func (r *friendRelationRepository) CreateFriendRequest(ctx context.Context, fr d
 	return nil
 }
 
+func (r *friendRelationRepository) DeclineFriendRequest(ctx context.Context, uId, fId string) error {
+	stmt, names := qb.
+		Delete(FRIEND_RELATIONS).
+		Where(qb.In("user_id")).
+		Where(qb.Eq("accepted")).
+		Where(qb.In("friend_id")).
+		ToCql()
+
+	err := r.sess.Query(stmt, names).
+		BindMap((qb.M{
+			"user_id":   []string{uId, fId},
+			"friend_id": []string{uId, fId},
+			"accepted":  false,
+		})).
+		ExecRelease()
+	if err != nil {
+		return err
+	}
+
+	return nil
+
+}
+
 func (r *friendRelationRepository) AcceptFriendRequest(ctx context.Context, uId, fId string) error {
 	updateStmt, updateNames := qb.
-		Update(TABLE_NAME).
+		Update(FRIEND_RELATIONS).
 		Where(qb.Eq("user_id")).
 		Where(qb.Eq("friend_id")).
 		If(qb.EqNamed("accepted", "old.accepted")).
@@ -69,8 +99,14 @@ func (r *friendRelationRepository) AcceptFriendRequest(ctx context.Context, uId,
 		Set("accepted_at").
 		ToCql()
 
+	countStmt, countNames := qb.
+		Update(FRIEND_COUNT).
+		Where(qb.In("user_id")).
+		Add("friend_count").
+		ToCql()
+
 	createStmt, createNames := qb.
-		Insert(TABLE_NAME).
+		Insert(FRIEND_RELATIONS).
 		Columns(friendRelationMetadata.Columns...).
 		ToCql()
 
@@ -78,6 +114,7 @@ func (r *friendRelationRepository) AcceptFriendRequest(ctx context.Context, uId,
 		Batch().
 		AddStmtWithPrefix("u", updateStmt, updateNames).
 		AddStmtWithPrefix("c", createStmt, createNames).
+		AddStmtWithPrefix("a", countStmt, countNames).
 		ToCql()
 
 	err := r.sess.Query(batch, names).
@@ -92,6 +129,8 @@ func (r *friendRelationRepository) AcceptFriendRequest(ctx context.Context, uId,
 			"c.accepted":     true,
 			"c.accepted_at":  time.Now(),
 			"c.requested_at": time.Now(),
+			"a.friend_count": 1,
+			"a.user_id":      []string{uId, fId},
 		})).
 		ExecRelease()
 	if err != nil {
@@ -103,8 +142,9 @@ func (r *friendRelationRepository) AcceptFriendRequest(ctx context.Context, uId,
 
 func (r *friendRelationRepository) RemoveFriendRelation(ctx context.Context, uId, fId string) error {
 	stmt, names := qb.
-		Delete(TABLE_NAME).
+		Delete(FRIEND_RELATIONS).
 		Where(qb.In("user_id")).
+		Where(qb.Eq("accepted")).
 		Where(qb.In("friend_id")).
 		ToCql()
 
@@ -112,6 +152,7 @@ func (r *friendRelationRepository) RemoveFriendRelation(ctx context.Context, uId
 		BindMap((qb.M{
 			"user_id":   []string{uId, fId},
 			"friend_id": []string{uId, fId},
+			"accepted":  true,
 		})).
 		ExecRelease()
 	if err != nil {
@@ -122,9 +163,17 @@ func (r *friendRelationRepository) RemoveFriendRelation(ctx context.Context, uId
 }
 
 func (r *friendRelationRepository) GetFriendRelation(ctx context.Context, uId, fId string) (res datastruct.FriendRelation, err error) {
+	stmt, names := qb.
+		Select(FRIEND_RELATIONS).
+		Columns(friendRelationMetadata.Columns...).
+		Where(qb.Eq("user_id")).
+		Where(qb.In("accepted")).
+		Where(qb.Eq("friend_id")).
+		ToCql()
+
 	err = r.sess.
-		Query(friendRelationTable.Get()).
-		BindMap((qb.M{"user_id": uId, "friend_id": fId})).
+		Query(stmt, names).
+		BindMap((qb.M{"user_id": uId, "friend_id": fId, "accepted": []bool{true, false}})).
 		GetRelease(&res)
 	if err != nil {
 		return res, err
@@ -135,7 +184,7 @@ func (r *friendRelationRepository) GetFriendRelation(ctx context.Context, uId, f
 
 func (r *friendRelationRepository) GetFriendsOfUser(ctx context.Context, uId string, page []byte, limit uint32) (result []datastruct.FriendRelation, nextPage []byte, err error) {
 	stmt, names := qb.
-		Select(TABLE_NAME).
+		Select(FRIEND_RELATIONS).
 		Where(qb.Eq("user_id")).
 		Where(qb.Eq("accepted")).
 		ToCql()
@@ -162,4 +211,22 @@ func (r *friendRelationRepository) GetFriendsOfUser(ctx context.Context, uId str
 	}
 
 	return result, iter.PageState(), nil
+}
+
+func (r *friendRelationRepository) GetFriendCount(ctx context.Context, uId string) (res datastruct.FriendCount, err error) {
+	stmt, names := qb.
+		Select(FRIEND_COUNT).
+		Columns(friendCountMetadata.Columns...).
+		Where(qb.Eq("user_id")).
+		ToCql()
+
+	err = r.sess.
+		Query(stmt, names).
+		BindMap((qb.M{"user_id": uId})).
+		GetRelease(&res)
+	if err != nil {
+		return res, err
+	}
+
+	return res, nil
 }

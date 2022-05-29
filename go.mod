@@ -3,8 +3,8 @@ module github.com/clubo-app/relation-service
 go 1.18
 
 require (
-	github.com/clubo-app/packages v0.0.0-20220527175458-6c8e7d7935c9
-	github.com/clubo-app/protobuf v0.0.0-20220527194713-edc207a1d44f
+	github.com/clubo-app/packages v0.0.0-20220529184338-03bf6fbe85dc
+	github.com/clubo-app/protobuf v0.0.0-20220529200542-ce35562c8cac
 	github.com/go-playground/validator/v10 v10.11.0
 	github.com/nats-io/nats.go v1.16.0
 	github.com/scylladb/gocqlx/v2 v2.7.0
@@ -54,7 +54,7 @@ require (
 	google.golang.org/genproto v0.0.0-20220527130721-00d5c0f3be58 // indirect
 	google.golang.org/protobuf v1.28.0 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
-	gopkg.in/ini.v1 v1.66.4 // indirect
+	gopkg.in/ini.v1 v1.66.5 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
