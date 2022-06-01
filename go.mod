@@ -4,13 +4,14 @@ go 1.18
 
 require (
 	github.com/clubo-app/packages v0.0.0-20220529184338-03bf6fbe85dc
-	github.com/clubo-app/protobuf v0.0.0-20220529200542-ce35562c8cac
+	github.com/clubo-app/protobuf v0.0.0-20220601172316-8dde70f4bcaa
 	github.com/go-playground/validator/v10 v10.11.0
 	github.com/nats-io/nats.go v1.16.0
 	github.com/scylladb/gocqlx/v2 v2.7.0
 	github.com/segmentio/ksuid v1.0.4
 	github.com/spf13/viper v1.12.0
 	google.golang.org/grpc v1.46.2
+	google.golang.org/protobuf v1.28.0
 )
 
 require (
@@ -52,7 +53,6 @@ require (
 	golang.org/x/sys v0.0.0-20220520151302-bc2c85ada10a // indirect
 	golang.org/x/text v0.3.7 // indirect
 	google.golang.org/genproto v0.0.0-20220527130721-00d5c0f3be58 // indirect
-	google.golang.org/protobuf v1.28.0 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/ini.v1 v1.66.5 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect

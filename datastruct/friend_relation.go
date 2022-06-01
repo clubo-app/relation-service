@@ -4,6 +4,7 @@ import (
 	"time"
 
 	rg "github.com/clubo-app/protobuf/relation"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 type FriendRelation struct {
@@ -19,7 +20,7 @@ func (fr FriendRelation) ToGRPCFriendRelation() *rg.FriendRelation {
 		UserId:      fr.UserId,
 		FriendId:    fr.FriendId,
 		Accepted:    fr.Accepted,
-		RequestedAt: fr.RequestedAt.UTC().Format(time.RFC3339),
-		AcceptedAt:  fr.AcceptedAt.UTC().Format(time.RFC3339),
+		RequestedAt: timestamppb.New(fr.RequestedAt),
+		AcceptedAt:  timestamppb.New(fr.AcceptedAt),
 	}
 }

@@ -4,6 +4,7 @@ import (
 	"time"
 
 	rg "github.com/clubo-app/protobuf/relation"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 type FavoriteParty struct {
@@ -16,6 +17,6 @@ func (f FavoriteParty) ToGRPCFavoriteParty() *rg.FavoriteParty {
 	return &rg.FavoriteParty{
 		UserId:      f.UserId,
 		PartyId:     f.PartyId,
-		FavoritedAt: f.FavoritedAt.UTC().Format(time.RFC3339),
+		FavoritedAt: timestamppb.New(f.FavoritedAt),
 	}
 }
