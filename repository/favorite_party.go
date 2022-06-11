@@ -12,7 +12,8 @@ import (
 )
 
 const (
-	FAVORITE_PARTIES string = "favorite_parties"
+	FAVORITE_PARTIES     string = "favorite_parties"
+	FAVORITE_PARTY_COUNT string = "favorite_party_count"
 )
 
 var favoritePartyMetadata = table.Metadata{
@@ -20,13 +21,19 @@ var favoritePartyMetadata = table.Metadata{
 	Columns: []string{"user_id", "party_id", "favorited_at"},
 	PartKey: []string{"user_id", "party_id", "favorited_at"},
 }
-var favoritePartyTable = table.New(favoritePartyMetadata)
+var favoritePartyCountMetadata = table.Metadata{
+	Name:    FAVORITE_PARTY_COUNT,
+	Columns: []string{"party_id", "favorite_party_count"},
+	PartKey: []string{"party_id"},
+}
 
 type FavoritePartyRepository interface {
 	FavorParty(ctx context.Context, fp datastruct.FavoriteParty) (datastruct.FavoriteParty, error)
 	DefavorParty(ctx context.Context, uId, pId string) error
-	GetFavoritePartiesByUser(ctx context.Context, uId string, page []byte, limit uint32) ([]datastruct.FavoriteParty, []byte, error)
-	GetFavorisingUsersByParty(ctx context.Context, pId string, page []byte, limit uint32) ([]datastruct.FavoriteParty, []byte, error)
+	GetFavoritePartiesByUser(ctx context.Context, uId string, page []byte, limit uint64) ([]datastruct.FavoriteParty, []byte, error)
+	GetFavorisingUsersByParty(ctx context.Context, pId string, page []byte, limit uint64) ([]datastruct.FavoriteParty, []byte, error)
+	GetfavoritePartyCount(ctx context.Context, pId string) (datastruct.FavoritePartyCount, error)
+	GetManyfavoritePartyCount(ctx context.Context, pIds []string) ([]datastruct.FavoritePartyCount, error)
 }
 
 type favoritePartyRepository struct {
@@ -73,7 +80,7 @@ func (r *favoritePartyRepository) DefavorParty(ctx context.Context, uId, pId str
 	return nil
 }
 
-func (r *favoritePartyRepository) GetFavoritePartiesByUser(ctx context.Context, uId string, page []byte, limit uint32) (result []datastruct.FavoriteParty, nextPage []byte, err error) {
+func (r *favoritePartyRepository) GetFavoritePartiesByUser(ctx context.Context, uId string, page []byte, limit uint64) (result []datastruct.FavoriteParty, nextPage []byte, err error) {
 	stmt, names := qb.
 		Select(FAVORITE_PARTIES).
 		Where(qb.Eq("user_id")).
@@ -100,7 +107,7 @@ func (r *favoritePartyRepository) GetFavoritePartiesByUser(ctx context.Context, 
 	return result, iter.PageState(), nil
 }
 
-func (r *favoritePartyRepository) GetFavorisingUsersByParty(ctx context.Context, pId string, page []byte, limit uint32) (result []datastruct.FavoriteParty, nextPage []byte, err error) {
+func (r *favoritePartyRepository) GetFavorisingUsersByParty(ctx context.Context, pId string, page []byte, limit uint64) (result []datastruct.FavoriteParty, nextPage []byte, err error) {
 	stmt, names := qb.
 		Select(FAVORITE_PARTIES).
 		Where(qb.Eq("party_id")).
@@ -125,4 +132,40 @@ func (r *favoritePartyRepository) GetFavorisingUsersByParty(ctx context.Context,
 	}
 
 	return result, iter.PageState(), nil
+}
+
+func (r *favoritePartyRepository) GetfavoritePartyCount(ctx context.Context, pId string) (res datastruct.FavoritePartyCount, err error) {
+	stmt, names := qb.
+		Select(FAVORITE_PARTY_COUNT).
+		Columns(favoritePartyCountMetadata.Columns...).
+		Where(qb.Eq("party_id")).
+		ToCql()
+
+	err = r.sess.
+		ContextQuery(ctx, stmt, names).
+		BindMap((qb.M{"party_id": pId})).
+		GetRelease(&res)
+	if err != nil {
+		return res, err
+	}
+
+	return res, nil
+}
+
+func (r *favoritePartyRepository) GetManyfavoritePartyCount(ctx context.Context, ids []string) (res []datastruct.FavoritePartyCount, err error) {
+	stmt, names := qb.
+		Select(FAVORITE_PARTY_COUNT).
+		Columns(favoritePartyCountMetadata.Columns...).
+		Where(qb.In("party_id")).
+		ToCql()
+
+	err = r.sess.
+		ContextQuery(ctx, stmt, names).
+		BindMap((qb.M{"party_id": ids})).
+		GetRelease(&res)
+	if err != nil {
+		return res, err
+	}
+
+	return res, nil
 }

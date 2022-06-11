@@ -2,6 +2,7 @@ package rpc
 
 import (
 	"context"
+	"log"
 
 	"github.com/clubo-app/packages/utils"
 	cg "github.com/clubo-app/protobuf/common"
@@ -17,6 +18,8 @@ func (s relationServer) AcceptFriendRequest(ctx context.Context, req *rg.AcceptF
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "Invalid User id")
 	}
+
+	log.Println(req.FriendId)
 	_, err = ksuid.Parse(req.FriendId)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "Invalid Friend id")

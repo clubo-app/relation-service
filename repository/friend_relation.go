@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"errors"
+	"log"
 	"time"
 
 	"github.com/clubo-app/relation-service/datastruct"
@@ -34,8 +35,9 @@ type FriendRelationRepository interface {
 	AcceptFriendRequest(ctx context.Context, uId, fId string) error
 	RemoveFriendRelation(ctx context.Context, uId, fId string) error
 	GetFriendRelation(ctx context.Context, uId, fId string) (datastruct.FriendRelation, error)
-	GetFriendsOfUser(ctx context.Context, uId string, page []byte, limit uint32) ([]datastruct.FriendRelation, []byte, error)
+	GetFriendsOfUser(ctx context.Context, uId string, page []byte, limit uint64) ([]datastruct.FriendRelation, []byte, error)
 	GetFriendCount(ctx context.Context, uId string) (datastruct.FriendCount, error)
+	GetManyFriendCount(ctx context.Context, ids []string) ([]datastruct.FriendCount, error)
 }
 
 type friendRelationRepository struct {
@@ -56,7 +58,7 @@ func (r *friendRelationRepository) CreateFriendRequest(ctx context.Context, fr d
 		ToCql()
 
 	err = r.sess.
-		Query(stmt, names).
+		ContextQuery(ctx, stmt, names).
 		BindStruct(fr).
 		ExecRelease()
 	if err != nil {
@@ -74,7 +76,7 @@ func (r *friendRelationRepository) DeclineFriendRequest(ctx context.Context, uId
 		Where(qb.In("friend_id")).
 		ToCql()
 
-	err := r.sess.Query(stmt, names).
+	err := r.sess.ContextQuery(ctx, stmt, names).
 		BindMap((qb.M{
 			"user_id":   []string{uId, fId},
 			"friend_id": []string{uId, fId},
@@ -93,6 +95,7 @@ func (r *friendRelationRepository) AcceptFriendRequest(ctx context.Context, uId,
 	updateStmt, updateNames := qb.
 		Update(FRIEND_RELATIONS).
 		Where(qb.Eq("user_id")).
+		Where(qb.EqNamed("accepted", "old.accepted")).
 		Where(qb.Eq("friend_id")).
 		If(qb.EqNamed("accepted", "old.accepted")).
 		Set("accepted").
@@ -117,7 +120,7 @@ func (r *friendRelationRepository) AcceptFriendRequest(ctx context.Context, uId,
 		AddStmtWithPrefix("a", countStmt, countNames).
 		ToCql()
 
-	err := r.sess.Query(batch, names).
+	err := r.sess.ContextQuery(ctx, batch, names).
 		BindMap((qb.M{
 			"u.user_id":      uId,
 			"u.friend_id":    fId,
@@ -134,6 +137,7 @@ func (r *friendRelationRepository) AcceptFriendRequest(ctx context.Context, uId,
 		})).
 		ExecRelease()
 	if err != nil {
+		log.Println(err)
 		return err
 	}
 
@@ -148,7 +152,7 @@ func (r *friendRelationRepository) RemoveFriendRelation(ctx context.Context, uId
 		Where(qb.In("friend_id")).
 		ToCql()
 
-	err := r.sess.Query(stmt, names).
+	err := r.sess.ContextQuery(ctx, stmt, names).
 		BindMap((qb.M{
 			"user_id":   []string{uId, fId},
 			"friend_id": []string{uId, fId},
@@ -166,23 +170,24 @@ func (r *friendRelationRepository) GetFriendRelation(ctx context.Context, uId, f
 	stmt, names := qb.
 		Select(FRIEND_RELATIONS).
 		Columns(friendRelationMetadata.Columns...).
-		Where(qb.Eq("user_id")).
+		Where(qb.In("user_id")).
 		Where(qb.In("accepted")).
-		Where(qb.Eq("friend_id")).
+		Where(qb.In("friend_id")).
 		ToCql()
 
 	err = r.sess.
-		Query(stmt, names).
-		BindMap((qb.M{"user_id": uId, "friend_id": fId, "accepted": []bool{true, false}})).
+		ContextQuery(ctx, stmt, names).
+		BindMap((qb.M{"user_id": []string{fId, uId}, "friend_id": []string{fId, uId}, "accepted": []bool{true, false}})).
 		GetRelease(&res)
 	if err != nil {
+		log.Println(err)
 		return res, err
 	}
 
 	return res, nil
 }
 
-func (r *friendRelationRepository) GetFriendsOfUser(ctx context.Context, uId string, page []byte, limit uint32) (result []datastruct.FriendRelation, nextPage []byte, err error) {
+func (r *friendRelationRepository) GetFriendsOfUser(ctx context.Context, uId string, page []byte, limit uint64) (result []datastruct.FriendRelation, nextPage []byte, err error) {
 	stmt, names := qb.
 		Select(FRIEND_RELATIONS).
 		Where(qb.Eq("user_id")).
@@ -190,7 +195,7 @@ func (r *friendRelationRepository) GetFriendsOfUser(ctx context.Context, uId str
 		ToCql()
 
 	q := r.sess.
-		Query(stmt, names).
+		ContextQuery(ctx, stmt, names).
 		BindMap((qb.M{
 			"user_id":  uId,
 			"accepted": true,
@@ -221,9 +226,28 @@ func (r *friendRelationRepository) GetFriendCount(ctx context.Context, uId strin
 		ToCql()
 
 	err = r.sess.
-		Query(stmt, names).
+		ContextQuery(ctx, stmt, names).
 		BindMap((qb.M{"user_id": uId})).
 		GetRelease(&res)
+	if err != nil {
+		return res, err
+	}
+
+	return res, nil
+}
+
+func (r *friendRelationRepository) GetManyFriendCount(ctx context.Context, ids []string) (res []datastruct.FriendCount, err error) {
+	stmt, names := qb.
+		Select(FRIEND_COUNT).
+		Columns(friendCountMetadata.Columns...).
+		Where(qb.In("user_id")).
+		ToCql()
+
+	err = r.sess.
+		ContextQuery(ctx, stmt, names).
+		BindMap((qb.M{"user_id": ids})).
+		GetRelease(&res)
+
 	if err != nil {
 		return res, err
 	}
