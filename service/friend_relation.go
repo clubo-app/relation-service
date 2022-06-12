@@ -13,6 +13,7 @@ type FriendRelationService interface {
 	RemoveFriendRelation(ctx context.Context, uId, fId string) error
 	GetFriendRelation(ctx context.Context, uId, fId string) (datastruct.FriendRelation, error)
 	GetFriendsOfUser(ctx context.Context, uId string, page []byte, limit uint64) ([]datastruct.FriendRelation, []byte, error)
+	GetIncomingFriendRequests(ctx context.Context, uId string, page []byte, limit uint64) ([]datastruct.FriendRelation, []byte, error)
 	GetFriendCount(ctx context.Context, uId string) (datastruct.FriendCount, error)
 	GetManyFriendCount(ctx context.Context, ids []string) ([]datastruct.FriendCount, error)
 }

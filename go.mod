@@ -4,7 +4,7 @@ go 1.18
 
 require (
 	github.com/clubo-app/packages v0.0.0-20220529184338-03bf6fbe85dc
-	github.com/clubo-app/protobuf v0.0.0-20220611173636-429a5b719def
+	github.com/clubo-app/protobuf v0.0.0-20220612195138-f351ad659451
 	github.com/go-playground/validator/v10 v10.11.0
 	github.com/nats-io/nats.go v1.16.0
 	github.com/scylladb/gocqlx/v2 v2.7.0
