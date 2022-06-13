@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"log"
+	"sync"
 	"time"
 
 	"github.com/clubo-app/relation-service/datastruct"
@@ -35,7 +36,7 @@ type FriendRelationRepository interface {
 	AcceptFriendRequest(ctx context.Context, uId, fId string) error
 	RemoveFriendRelation(ctx context.Context, uId, fId string) error
 	GetFriendRelation(ctx context.Context, uId, fId string) (datastruct.FriendRelation, error)
-	GetFriendsOfUser(ctx context.Context, uId string, page []byte, limit uint64) ([]datastruct.FriendRelation, []byte, error)
+	GetFriends(ctx context.Context, uId string, page []byte, limit uint64) ([]datastruct.FriendRelation, []byte, error)
 	GetIncomingFriendRequests(ctx context.Context, uId string, page []byte, limit uint64) ([]datastruct.FriendRelation, []byte, error)
 	GetFriendCount(ctx context.Context, uId string) (datastruct.FriendCount, error)
 	GetManyFriendCount(ctx context.Context, ids []string) ([]datastruct.FriendCount, error)
@@ -87,10 +88,12 @@ func (r *friendRelationRepository) DeclineFriendRequest(ctx context.Context, uId
 	}
 
 	return nil
-
 }
 
 func (r *friendRelationRepository) AcceptFriendRequest(ctx context.Context, uId, fId string) error {
+	wg := new(sync.WaitGroup)
+	wg.Add(3)
+
 	go func() {
 		uStmt, uNames := qb.
 			Update(FRIEND_RELATIONS).
@@ -113,6 +116,7 @@ func (r *friendRelationRepository) AcceptFriendRequest(ctx context.Context, uId,
 			ExecRelease()
 
 		log.Println("Update Friend Request Error: ", err)
+		wg.Done()
 	}()
 
 	go func() {
@@ -133,6 +137,7 @@ func (r *friendRelationRepository) AcceptFriendRequest(ctx context.Context, uId,
 			ExecRelease()
 
 		log.Println("Create Friend Relation Error: ", err)
+		wg.Done()
 	}()
 
 	go func() {
@@ -151,8 +156,10 @@ func (r *friendRelationRepository) AcceptFriendRequest(ctx context.Context, uId,
 			ExecRelease()
 
 		log.Println("Friend Count Addition Error: ", err)
+		wg.Done()
 	}()
 
+	wg.Wait()
 	return nil
 }
 
@@ -230,7 +237,7 @@ func (r *friendRelationRepository) GetFriendRelation(ctx context.Context, uId, f
 	return res, nil
 }
 
-func (r *friendRelationRepository) GetFriendsOfUser(ctx context.Context, uId string, page []byte, limit uint64) (res []datastruct.FriendRelation, nextPage []byte, err error) {
+func (r *friendRelationRepository) GetFriends(ctx context.Context, uId string, page []byte, limit uint64) (res []datastruct.FriendRelation, nextPage []byte, err error) {
 	stmt, names := qb.
 		Select(FRIEND_RELATIONS).
 		Where(qb.Eq("user_id")).
@@ -288,6 +295,8 @@ func (r *friendRelationRepository) GetIncomingFriendRequests(ctx context.Context
 	if err != nil {
 		return []datastruct.FriendRelation{}, nil, errors.New("no friend requests found")
 	}
+
+	log.Println(res)
 
 	return res, iter.PageState(), nil
 }
