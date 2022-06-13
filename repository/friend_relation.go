@@ -95,6 +95,8 @@ func (r *friendRelationRepository) AcceptFriendRequest(ctx context.Context, uId,
 	wg.Add(3)
 
 	go func() {
+		defer wg.Done()
+
 		uStmt, uNames := qb.
 			Update(FRIEND_RELATIONS).
 			Where(qb.Eq("user_id")).
@@ -116,10 +118,11 @@ func (r *friendRelationRepository) AcceptFriendRequest(ctx context.Context, uId,
 			ExecRelease()
 
 		log.Println("Update Friend Request Error: ", err)
-		wg.Done()
 	}()
 
 	go func() {
+		defer wg.Done()
+
 		cStmt, cNames := qb.
 			Insert(FRIEND_RELATIONS).
 			Columns(friendRelationMetadata.Columns...).
@@ -137,10 +140,11 @@ func (r *friendRelationRepository) AcceptFriendRequest(ctx context.Context, uId,
 			ExecRelease()
 
 		log.Println("Create Friend Relation Error: ", err)
-		wg.Done()
 	}()
 
 	go func() {
+		defer wg.Done()
+
 		countStmt, countNames := qb.
 			Update(FRIEND_COUNT).
 			Where(qb.In("user_id")).
@@ -156,7 +160,6 @@ func (r *friendRelationRepository) AcceptFriendRequest(ctx context.Context, uId,
 			ExecRelease()
 
 		log.Println("Friend Count Addition Error: ", err)
-		wg.Done()
 	}()
 
 	wg.Wait()
