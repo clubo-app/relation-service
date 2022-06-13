@@ -167,38 +167,70 @@ func (r *friendRelationRepository) AcceptFriendRequest(ctx context.Context, uId,
 }
 
 func (r *friendRelationRepository) RemoveFriendRelation(ctx context.Context, uId, fId string) error {
-	stmt1, names1 := qb.
-		Delete(FRIEND_RELATIONS).
-		Where(qb.Eq("user_id")).
-		Where(qb.Eq("friend_id")).
-		ToCql()
+	wg := new(sync.WaitGroup)
+	wg.Add(3)
 
-	stmt2, names2 := qb.
-		Delete(FRIEND_RELATIONS).
-		Where(qb.Eq("user_id")).
-		Where(qb.Eq("friend_id")).
-		ToCql()
+	go func() {
+		defer wg.Done()
 
-	err := r.sess.ContextQuery(ctx, stmt1, names1).
-		BindMap((qb.M{
-			"user_id":   uId,
-			"friend_id": fId,
-		})).
-		ExecRelease()
-	if err != nil {
-		return err
-	}
+		stmt, names := qb.
+			Delete(FRIEND_RELATIONS).
+			Where(qb.Eq("user_id")).
+			Where(qb.Eq("friend_id")).
+			ToCql()
 
-	err = r.sess.ContextQuery(ctx, stmt2, names2).
-		BindMap((qb.M{
-			"user_id":   fId,
-			"friend_id": uId,
-		})).
-		ExecRelease()
-	if err != nil {
-		return err
-	}
+		err := r.sess.ContextQuery(ctx, stmt, names).
+			BindMap((qb.M{
+				"user_id":   uId,
+				"friend_id": fId,
+			})).
+			ExecRelease()
+		if err != nil {
+			log.Println("Remove Friend Stmt 1 Error: ", err)
+		}
+	}()
 
+	go func() {
+		defer wg.Done()
+
+		stmt, names := qb.
+			Delete(FRIEND_RELATIONS).
+			Where(qb.Eq("user_id")).
+			Where(qb.Eq("friend_id")).
+			ToCql()
+
+		err := r.sess.ContextQuery(ctx, stmt, names).
+			BindMap((qb.M{
+				"user_id":   fId,
+				"friend_id": uId,
+			})).
+			ExecRelease()
+		if err != nil {
+			log.Println("Remove Friend Stmt 2 Error: ", err)
+		}
+	}()
+
+	go func() {
+		defer wg.Done()
+
+		countStmt, countNames := qb.
+			Update(FRIEND_COUNT).
+			Where(qb.In("user_id")).
+			Remove("friend_count").
+			ToCql()
+
+		err := r.sess.
+			ContextQuery(ctx, countStmt, countNames).
+			BindMap((qb.M{
+				"friend_count": 1,
+				"user_id":      []string{uId, fId},
+			})).
+			ExecRelease()
+
+		log.Println("Friend Count Subtraction Error: ", err)
+	}()
+
+	wg.Wait()
 	return nil
 }
 

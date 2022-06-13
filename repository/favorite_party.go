@@ -3,6 +3,8 @@ package repository
 import (
 	"context"
 	"errors"
+	"log"
+	"sync"
 
 	"github.com/clubo-app/relation-service/datastruct"
 	"github.com/go-playground/validator/v10"
@@ -47,6 +49,29 @@ func (r *favoritePartyRepository) FavorParty(ctx context.Context, fp datastruct.
 		return datastruct.FavoriteParty{}, err
 	}
 
+	wg := new(sync.WaitGroup)
+	wg.Add(1)
+
+	go func() {
+		defer wg.Done()
+
+		countStmt, countNames := qb.
+			Update(FAVORITE_PARTY_COUNT).
+			Where(qb.Eq("party_id")).
+			Add("favorite_party_count").
+			ToCql()
+
+		err := r.sess.
+			ContextQuery(ctx, countStmt, countNames).
+			BindMap((qb.M{
+				"favorite_party_count": 1,
+				"party_id":             fp.PartyId,
+			})).
+			ExecRelease()
+
+		log.Println("Favorite Party Count Addition Error: ", err)
+	}()
+
 	stmt, names := qb.
 		Insert(FAVORITE_PARTIES).
 		Columns(favoritePartyMetadata.Columns...).
@@ -60,23 +85,53 @@ func (r *favoritePartyRepository) FavorParty(ctx context.Context, fp datastruct.
 		return datastruct.FavoriteParty{}, err
 	}
 
+	wg.Wait()
 	return fp, nil
 }
 
 func (r *favoritePartyRepository) DefavorParty(ctx context.Context, uId, pId string) error {
-	stmt, names := qb.
-		Delete(FAVORITE_PARTIES).
-		Where(qb.Eq("user_id")).
-		Where(qb.Eq("party_id")).
-		ToCql()
+	wg := new(sync.WaitGroup)
+	wg.Add(2)
 
-	err := r.sess.
-		Query(stmt, names).
-		BindMap((qb.M{"party_id": pId, "user_id": uId})).
-		ExecRelease()
-	if err != nil {
-		return err
-	}
+	go func() {
+		defer wg.Done()
+
+		countStmt, countNames := qb.
+			Update(FAVORITE_PARTY_COUNT).
+			Where(qb.Eq("party_id")).
+			Remove("favorite_party_count").
+			ToCql()
+
+		err := r.sess.
+			ContextQuery(ctx, countStmt, countNames).
+			BindMap((qb.M{
+				"favorite_party_count": 1,
+				"party_id":             pId,
+			})).
+			ExecRelease()
+
+		log.Println("Friend Count Subtraction Error: ", err)
+	}()
+
+	go func() {
+		defer wg.Done()
+
+		stmt, names := qb.
+			Delete(FAVORITE_PARTIES).
+			Where(qb.Eq("user_id")).
+			Where(qb.Eq("party_id")).
+			ToCql()
+
+		err := r.sess.
+			Query(stmt, names).
+			BindMap((qb.M{"party_id": pId, "user_id": uId})).
+			ExecRelease()
+		if err != nil {
+			log.Println("Defavor Party Error: ", err)
+		}
+	}()
+
+	wg.Wait()
 	return nil
 }
 
