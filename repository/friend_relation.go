@@ -296,8 +296,6 @@ func (r *friendRelationRepository) GetIncomingFriendRequests(ctx context.Context
 		return []datastruct.FriendRelation{}, nil, errors.New("no friend requests found")
 	}
 
-	log.Println(res)
-
 	return res, iter.PageState(), nil
 }
 
