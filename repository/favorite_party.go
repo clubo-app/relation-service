@@ -14,14 +14,15 @@ import (
 )
 
 const (
-	FAVORITE_PARTIES     string = "favorite_parties"
-	FAVORITE_PARTY_COUNT string = "favorite_party_count"
+	PARTY_FAVORITES          string = "party_favorites"
+	FAVORITE_PARTIES_BY_USER string = "favorite_parties_by_user"
+	FAVORITE_PARTY_COUNT     string = "favorite_party_count"
 )
 
 var favoritePartyMetadata = table.Metadata{
-	Name:    FAVORITE_PARTIES,
+	Name:    PARTY_FAVORITES,
 	Columns: []string{"user_id", "party_id", "favorited_at"},
-	PartKey: []string{"user_id", "party_id", "favorited_at"},
+	PartKey: []string{"user_id", "party_id"},
 }
 var favoritePartyCountMetadata = table.Metadata{
 	Name:    FAVORITE_PARTY_COUNT,
@@ -68,13 +69,16 @@ func (r *favoritePartyRepository) FavorParty(ctx context.Context, fp datastruct.
 				"party_id":             fp.PartyId,
 			})).
 			ExecRelease()
+		if err != nil {
+			log.Println("Favorite Party Count Addition Error: ", err)
 
-		log.Println("Favorite Party Count Addition Error: ", err)
+		}
 	}()
 
 	stmt, names := qb.
-		Insert(FAVORITE_PARTIES).
+		Insert(PARTY_FAVORITES).
 		Columns(favoritePartyMetadata.Columns...).
+		Unique().
 		ToCql()
 
 	err = r.sess.
@@ -117,7 +121,7 @@ func (r *favoritePartyRepository) DefavorParty(ctx context.Context, uId, pId str
 		defer wg.Done()
 
 		stmt, names := qb.
-			Delete(FAVORITE_PARTIES).
+			Delete(PARTY_FAVORITES).
 			Where(qb.Eq("user_id")).
 			Where(qb.Eq("party_id")).
 			ToCql()
@@ -137,7 +141,7 @@ func (r *favoritePartyRepository) DefavorParty(ctx context.Context, uId, pId str
 
 func (r *favoritePartyRepository) GetFavoritePartiesByUser(ctx context.Context, uId string, page []byte, limit uint64) (result []datastruct.FavoriteParty, nextPage []byte, err error) {
 	stmt, names := qb.
-		Select(FAVORITE_PARTIES).
+		Select(FAVORITE_PARTIES_BY_USER).
 		Where(qb.Eq("user_id")).
 		ToCql()
 
@@ -164,7 +168,7 @@ func (r *favoritePartyRepository) GetFavoritePartiesByUser(ctx context.Context, 
 
 func (r *favoritePartyRepository) GetFavorisingUsersByParty(ctx context.Context, pId string, page []byte, limit uint64) (result []datastruct.FavoriteParty, nextPage []byte, err error) {
 	stmt, names := qb.
-		Select(FAVORITE_PARTIES).
+		Select(PARTY_FAVORITES).
 		Where(qb.Eq("party_id")).
 		ToCql()
 

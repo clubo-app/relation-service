@@ -11,7 +11,7 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-func (s *relationServer) GetFovorisingUsersByParty(ctx context.Context, req *rg.GetFavorisingUsersByPartyRequest) (*rg.PagedFavoriteParties, error) {
+func (s *relationServer) GetFavorisingUsersByParty(ctx context.Context, req *rg.GetFavorisingUsersByPartyRequest) (*rg.PagedFavoriteParties, error) {
 	_, err := ksuid.Parse(req.PartyId)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "Invalid Party id")
