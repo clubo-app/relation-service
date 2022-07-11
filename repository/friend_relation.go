@@ -31,7 +31,7 @@ var friendRelationMetadata = table.Metadata{
 }
 
 type FriendRelationRepository interface {
-	CreateFriendRequest(ctx context.Context, fr datastruct.FriendRelation) error
+	CreateFriendRequest(ctx context.Context, uId string, fId string) error
 	DeclineFriendRequest(ctx context.Context, uId, fId string) error
 	AcceptFriendRequest(ctx context.Context, uId, fId string) error
 	RemoveFriendRelation(ctx context.Context, uId, fId string) error
@@ -46,7 +46,14 @@ type friendRelationRepository struct {
 	sess *gocqlx.Session
 }
 
-func (r *friendRelationRepository) CreateFriendRequest(ctx context.Context, fr datastruct.FriendRelation) error {
+func (r *friendRelationRepository) CreateFriendRequest(ctx context.Context, uId string, fId string) error {
+	fr := datastruct.FriendRelation{
+		FriendId:    uId,
+		UserId:      fId,
+		Accepted:    false,
+		RequestedAt: time.Now(),
+	}
+
 	v := validator.New()
 	err := v.Struct(fr)
 	if err != nil {
@@ -90,14 +97,20 @@ func (r *friendRelationRepository) DeclineFriendRequest(ctx context.Context, uId
 	return nil
 }
 
+// This Method accepts a friend request and adds both users to each others friend list
 func (r *friendRelationRepository) AcceptFriendRequest(ctx context.Context, uId, fId string) error {
 	wg := new(sync.WaitGroup)
-	wg.Add(3)
+	wg.Add(2)
+
+	log.Printf("Friend: %v", fId)
+	log.Printf("User: %v", uId)
+
+	var err error
 
 	go func() {
 		defer wg.Done()
 
-		uStmt, uNames := qb.
+		stmt, names := qb.
 			Update(FRIEND_RELATIONS).
 			Where(qb.Eq("user_id")).
 			Where(qb.Eq("friend_id")).
@@ -106,8 +119,8 @@ func (r *friendRelationRepository) AcceptFriendRequest(ctx context.Context, uId,
 			Set("accepted_at").
 			ToCql()
 
-		err := r.sess.
-			ContextQuery(ctx, uStmt, uNames).
+		err1 := r.sess.
+			ContextQuery(ctx, stmt, names).
 			BindMap((qb.M{
 				"user_id":      uId,
 				"friend_id":    fId,
@@ -116,20 +129,24 @@ func (r *friendRelationRepository) AcceptFriendRequest(ctx context.Context, uId,
 				"accepted_at":  time.Now(),
 			})).
 			ExecRelease()
-
-		log.Println("Update Friend Request Error: ", err)
+		if err1 != nil {
+			err = err1
+		}
 	}()
 
 	go func() {
 		defer wg.Done()
 
-		cStmt, cNames := qb.
+		stmt, names := qb.
 			Insert(FRIEND_RELATIONS).
+			Unique().
 			Columns(friendRelationMetadata.Columns...).
 			ToCql()
 
-		err := r.sess.
-			ContextQuery(ctx, cStmt, cNames).
+		log.Println(stmt)
+
+		err2 := r.sess.
+			ContextQuery(ctx, stmt, names).
 			BindMap((qb.M{
 				"user_id":      fId,
 				"friend_id":    uId,
@@ -138,99 +155,32 @@ func (r *friendRelationRepository) AcceptFriendRequest(ctx context.Context, uId,
 				"requested_at": time.Now(),
 			})).
 			ExecRelease()
-
-		log.Println("Create Friend Relation Error: ", err)
-	}()
-
-	go func() {
-		defer wg.Done()
-
-		countStmt, countNames := qb.
-			Update(FRIEND_COUNT).
-			Where(qb.In("user_id")).
-			Add("friend_count").
-			ToCql()
-
-		err := r.sess.
-			ContextQuery(ctx, countStmt, countNames).
-			BindMap((qb.M{
-				"friend_count": 1,
-				"user_id":      []string{uId, fId},
-			})).
-			ExecRelease()
-
-		log.Println("Friend Count Addition Error: ", err)
+		if err2 != nil {
+			err = err2
+		}
 	}()
 
 	wg.Wait()
-	return nil
+	return err
 }
 
 func (r *friendRelationRepository) RemoveFriendRelation(ctx context.Context, uId, fId string) error {
-	wg := new(sync.WaitGroup)
-	wg.Add(3)
+	stmt, names := qb.
+		Delete(FRIEND_RELATIONS).
+		Where(qb.Eq("user_id")).
+		Where(qb.Eq("friend_id")).
+		ToCql()
 
-	go func() {
-		defer wg.Done()
+	err := r.sess.ContextQuery(ctx, stmt, names).
+		BindMap((qb.M{
+			"user_id":   uId,
+			"friend_id": fId,
+		})).
+		ExecRelease()
+	if err != nil {
+		return err
+	}
 
-		stmt, names := qb.
-			Delete(FRIEND_RELATIONS).
-			Where(qb.Eq("user_id")).
-			Where(qb.Eq("friend_id")).
-			ToCql()
-
-		err := r.sess.ContextQuery(ctx, stmt, names).
-			BindMap((qb.M{
-				"user_id":   uId,
-				"friend_id": fId,
-			})).
-			ExecRelease()
-		if err != nil {
-			log.Println("Remove Friend Stmt 1 Error: ", err)
-		}
-	}()
-
-	go func() {
-		defer wg.Done()
-
-		stmt, names := qb.
-			Delete(FRIEND_RELATIONS).
-			Where(qb.Eq("user_id")).
-			Where(qb.Eq("friend_id")).
-			ToCql()
-
-		err := r.sess.ContextQuery(ctx, stmt, names).
-			BindMap((qb.M{
-				"user_id":   fId,
-				"friend_id": uId,
-			})).
-			ExecRelease()
-		if err != nil {
-			log.Println("Remove Friend Stmt 2 Error: ", err)
-		}
-	}()
-
-	go func() {
-		defer wg.Done()
-
-		countStmt, countNames := qb.
-			Update(FRIEND_COUNT).
-			Where(qb.In("user_id")).
-			Remove("friend_count").
-			ToCql()
-
-		err := r.sess.
-			ContextQuery(ctx, countStmt, countNames).
-			BindMap((qb.M{
-				"friend_count": 1,
-				"user_id":      []string{uId, fId},
-			})).
-			ExecRelease()
-
-		log.Println("Friend Count Subtraction Error: ", err)
-	}()
-
-	wg.Wait()
 	return nil
 }
 

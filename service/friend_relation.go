@@ -7,7 +7,7 @@ import (
 )
 
 type FriendRelationService interface {
-	CreateFriendRequest(ctx context.Context, fr datastruct.FriendRelation) error
+	CreateFriendRequest(ctx context.Context, uId, fId string) error
 	DeclineFriendRequest(ctx context.Context, uId, fId string) error
 	AcceptFriendRequest(ctx context.Context, uId, fId string) error
 	RemoveFriendRelation(ctx context.Context, uId, fId string) error
