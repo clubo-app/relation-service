@@ -5,7 +5,6 @@ import (
 
 	"github.com/clubo-app/packages/utils"
 	cg "github.com/clubo-app/protobuf/common"
-	"github.com/clubo-app/protobuf/events"
 	rg "github.com/clubo-app/protobuf/relation"
 	"github.com/segmentio/ksuid"
 	"google.golang.org/grpc/codes"
@@ -27,11 +26,6 @@ func (s relationServer) AcceptFriendRequest(ctx context.Context, req *rg.AcceptF
 	if err != nil {
 		return nil, utils.HandleError(err)
 	}
-
-	s.stream.PublishEvent(&events.FriendAccepted{
-		UserId:   req.UserId,
-		FriendId: req.FriendId,
-	})
 
 	return &cg.SuccessIndicator{Sucess: true}, nil
 }

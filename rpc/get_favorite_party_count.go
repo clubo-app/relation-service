@@ -22,5 +22,4 @@ func (s relationServer) GetFavoritePartyCount(ctx context.Context, req *rg.GetFa
 	}
 
 	return &rg.GetFavoritePartyCountResponse{FavoriteCount: uint32(fp.FavoritePartyCount)}, nil
-
 }

@@ -71,7 +71,6 @@ func (r *favoritePartyRepository) FavorParty(ctx context.Context, fp datastruct.
 			ExecRelease()
 		if err != nil {
 			log.Println("Favorite Party Count Addition Error: ", err)
-
 		}
 	}()
 

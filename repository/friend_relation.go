@@ -3,7 +3,6 @@ package repository
 import (
 	"context"
 	"errors"
-	"log"
 	"sync"
 	"time"
 
@@ -38,6 +37,8 @@ type FriendRelationRepository interface {
 	GetFriendRelation(ctx context.Context, uId, fId string) (datastruct.FriendRelation, error)
 	GetFriends(ctx context.Context, uId string, page []byte, limit uint64) ([]datastruct.FriendRelation, []byte, error)
 	GetIncomingFriendRequests(ctx context.Context, uId string, page []byte, limit uint64) ([]datastruct.FriendRelation, []byte, error)
+	IncreaseFriendCount(ctx context.Context, uId string) error
+	DecreaseFriendCount(ctx context.Context, uId string) error
 	GetFriendCount(ctx context.Context, uId string) (datastruct.FriendCount, error)
 	GetManyFriendCount(ctx context.Context, ids []string) ([]datastruct.FriendCount, error)
 }
@@ -102,9 +103,6 @@ func (r *friendRelationRepository) AcceptFriendRequest(ctx context.Context, uId,
 	wg := new(sync.WaitGroup)
 	wg.Add(2)
 
-	log.Printf("Friend: %v", fId)
-	log.Printf("User: %v", uId)
-
 	var err error
 
 	go func() {
@@ -142,8 +140,6 @@ func (r *friendRelationRepository) AcceptFriendRequest(ctx context.Context, uId,
 			Unique().
 			Columns(friendRelationMetadata.Columns...).
 			ToCql()
-
-		log.Println(stmt)
 
 		err2 := r.sess.
 			ContextQuery(ctx, stmt, names).
@@ -282,6 +278,42 @@ func (r *friendRelationRepository) GetIncomingFriendRequests(ctx context.Context
 	}
 
 	return res, iter.PageState(), nil
+}
+
+func (r *friendRelationRepository) IncreaseFriendCount(ctx context.Context, uId string) error {
+	stmt, names := qb.
+		Update(FRIEND_COUNT).
+		Where(qb.Eq("user_id")).
+		Add("friend_count").
+		ToCql()
+
+	err := r.sess.
+		ContextQuery(ctx, stmt, names).
+		BindMap((qb.M{
+			"friend_count": 1,
+			"user_id":      uId,
+		})).
+		ExecRelease()
+
+	return err
+}
+
+func (r *friendRelationRepository) DecreaseFriendCount(ctx context.Context, uId string) error {
+	stmt, names := qb.
+		Update(FRIEND_COUNT).
+		Where(qb.Eq("user_id")).
+		Add("friend_count").
+		ToCql()
+
+	err := r.sess.
+		ContextQuery(ctx, stmt, names).
+		BindMap((qb.M{
+			"friend_count": 1,
+			"user_id":      uId,
+		})).
+		ExecRelease()
+
+	return err
 }
 
 func (r *friendRelationRepository) GetFriendCount(ctx context.Context, uId string) (res datastruct.FriendCount, err error) {

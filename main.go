@@ -5,6 +5,7 @@ import (
 
 	"github.com/clubo-app/packages/stream"
 	"github.com/clubo-app/relation-service/config"
+	"github.com/clubo-app/relation-service/consumer"
 	"github.com/clubo-app/relation-service/repository"
 	"github.com/clubo-app/relation-service/rpc"
 	"github.com/nats-io/nats.go"
@@ -17,12 +18,11 @@ func main() {
 	}
 
 	opts := []nats.Option{nats.Name("Relation Service")}
-	nc, err := stream.Connect(c.NATS_CLUSTER, opts)
+	stream, err := stream.Connect(c.NATS_CLUSTER, opts)
 	if err != nil {
 		log.Fatalln(err)
 	}
-	defer nc.Close()
-	stream := stream.New(nc)
+	defer stream.Close()
 
 	cqlx, err := repository.NewDB(c.CQL_KEYSPACE, c.CQL_HOSTS)
 	if err != nil {
@@ -32,6 +32,11 @@ func main() {
 
 	dao := repository.NewDAO(cqlx)
 
-	r := rpc.NewRelationServer(dao.NewFriendRelationRepository(), dao.NewFavoritePartyRepository(), stream)
+	fs := dao.NewFriendRelationRepository()
+
+	con := consumer.New(stream, fs)
+	go con.Start()
+
+	r := rpc.NewRelationServer(fs, dao.NewFavoritePartyRepository(), stream)
 	rpc.Start(r, c.PORT)
 }
