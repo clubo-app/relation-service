@@ -3,8 +3,6 @@ package repository
 import (
 	"context"
 	"errors"
-	"log"
-	"sync"
 
 	"github.com/clubo-app/relation-service/datastruct"
 	"github.com/go-playground/validator/v10"
@@ -37,6 +35,8 @@ type FavoritePartyRepository interface {
 	GetFavorisingUsersByParty(ctx context.Context, pId string, page []byte, limit uint64) ([]datastruct.FavoriteParty, []byte, error)
 	GetfavoritePartyCount(ctx context.Context, pId string) (datastruct.FavoritePartyCount, error)
 	GetManyfavoritePartyCount(ctx context.Context, pIds []string) ([]datastruct.FavoritePartyCount, error)
+	IncreaseFavoritePartyCount(ctx context.Context, pId string) error
+	DecreaseFavoritePartyCount(ctx context.Context, pId string) error
 }
 
 type favoritePartyRepository struct {
@@ -49,30 +49,6 @@ func (r *favoritePartyRepository) FavorParty(ctx context.Context, fp datastruct.
 	if err != nil {
 		return datastruct.FavoriteParty{}, err
 	}
-
-	wg := new(sync.WaitGroup)
-	wg.Add(1)
-
-	go func() {
-		defer wg.Done()
-
-		countStmt, countNames := qb.
-			Update(FAVORITE_PARTY_COUNT).
-			Where(qb.Eq("party_id")).
-			Add("favorite_party_count").
-			ToCql()
-
-		err := r.sess.
-			ContextQuery(ctx, countStmt, countNames).
-			BindMap((qb.M{
-				"favorite_party_count": 1,
-				"party_id":             fp.PartyId,
-			})).
-			ExecRelease()
-		if err != nil {
-			log.Println("Favorite Party Count Addition Error: ", err)
-		}
-	}()
 
 	stmt, names := qb.
 		Insert(PARTY_FAVORITES).
@@ -88,53 +64,24 @@ func (r *favoritePartyRepository) FavorParty(ctx context.Context, fp datastruct.
 		return datastruct.FavoriteParty{}, err
 	}
 
-	wg.Wait()
 	return fp, nil
 }
 
 func (r *favoritePartyRepository) DefavorParty(ctx context.Context, uId, pId string) error {
-	wg := new(sync.WaitGroup)
-	wg.Add(2)
+	stmt, names := qb.
+		Delete(PARTY_FAVORITES).
+		Where(qb.Eq("user_id")).
+		Where(qb.Eq("party_id")).
+		ToCql()
 
-	go func() {
-		defer wg.Done()
+	err := r.sess.
+		Query(stmt, names).
+		BindMap((qb.M{"party_id": pId, "user_id": uId})).
+		ExecRelease()
+	if err != nil {
+		return err
+	}
 
-		countStmt, countNames := qb.
-			Update(FAVORITE_PARTY_COUNT).
-			Where(qb.Eq("party_id")).
-			Remove("favorite_party_count").
-			ToCql()
-
-		err := r.sess.
-			ContextQuery(ctx, countStmt, countNames).
-			BindMap((qb.M{
-				"favorite_party_count": 1,
-				"party_id":             pId,
-			})).
-			ExecRelease()
-
-		log.Println("Friend Count Subtraction Error: ", err)
-	}()
-
-	go func() {
-		defer wg.Done()
-
-		stmt, names := qb.
-			Delete(PARTY_FAVORITES).
-			Where(qb.Eq("user_id")).
-			Where(qb.Eq("party_id")).
-			ToCql()
-
-		err := r.sess.
-			Query(stmt, names).
-			BindMap((qb.M{"party_id": pId, "user_id": uId})).
-			ExecRelease()
-		if err != nil {
-			log.Println("Defavor Party Error: ", err)
-		}
-	}()
-
-	wg.Wait()
 	return nil
 }
 
@@ -226,4 +173,43 @@ func (r *favoritePartyRepository) GetManyfavoritePartyCount(ctx context.Context,
 	}
 
 	return res, nil
+}
+
+func (r *favoritePartyRepository) IncreaseFavoritePartyCount(ctx context.Context, pId string) error {
+	countStmt, countNames := qb.
+		Update(FAVORITE_PARTY_COUNT).
+		Where(qb.Eq("party_id")).
+		Add("favorite_party_count").
+		ToCql()
+
+	err := r.sess.
+		ContextQuery(ctx, countStmt, countNames).
+		BindMap((qb.M{
+			"favorite_party_count": 1,
+			"party_id":             pId,
+		})).
+		ExecRelease()
+	if err != nil {
+		return err
+	}
+	return nil
+}
+func (r *favoritePartyRepository) DecreaseFavoritePartyCount(ctx context.Context, pId string) error {
+	countStmt, countNames := qb.
+		Update(FAVORITE_PARTY_COUNT).
+		Where(qb.Eq("party_id")).
+		Remove("favorite_party_count").
+		ToCql()
+
+	err := r.sess.
+		ContextQuery(ctx, countStmt, countNames).
+		BindMap((qb.M{
+			"favorite_party_count": 1,
+			"party_id":             pId,
+		})).
+		ExecRelease()
+	if err != nil {
+		return err
+	}
+	return nil
 }
