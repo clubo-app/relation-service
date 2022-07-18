@@ -72,6 +72,7 @@ func (r *favoritePartyRepository) DefavorParty(ctx context.Context, uId, pId str
 		Delete(FAVORITE_PARTIES).
 		Where(qb.Eq("user_id")).
 		Where(qb.Eq("party_id")).
+		Existing().
 		ToCql()
 
 	err := r.sess.

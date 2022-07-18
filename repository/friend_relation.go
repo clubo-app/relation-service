@@ -302,7 +302,7 @@ func (r *friendRelationRepository) DecreaseFriendCount(ctx context.Context, uId 
 	stmt, names := qb.
 		Update(FRIEND_COUNT).
 		Where(qb.Eq("user_id")).
-		Add("friend_count").
+		Remove("friend_count").
 		ToCql()
 
 	err := r.sess.
