@@ -12,13 +12,13 @@ import (
 )
 
 const (
-	PARTY_FAVORITES          string = "party_favorites"
+	FAVORITE_PARTIES         string = "favorite_parties"
 	FAVORITE_PARTIES_BY_USER string = "favorite_parties_by_user"
 	FAVORITE_PARTY_COUNT     string = "favorite_party_count"
 )
 
 var favoritePartyMetadata = table.Metadata{
-	Name:    PARTY_FAVORITES,
+	Name:    FAVORITE_PARTIES,
 	Columns: []string{"user_id", "party_id", "favorited_at"},
 	PartKey: []string{"user_id", "party_id"},
 }
@@ -51,7 +51,7 @@ func (r *favoritePartyRepository) FavorParty(ctx context.Context, fp datastruct.
 	}
 
 	stmt, names := qb.
-		Insert(PARTY_FAVORITES).
+		Insert(FAVORITE_PARTIES).
 		Columns(favoritePartyMetadata.Columns...).
 		Unique().
 		ToCql()
@@ -69,7 +69,7 @@ func (r *favoritePartyRepository) FavorParty(ctx context.Context, fp datastruct.
 
 func (r *favoritePartyRepository) DefavorParty(ctx context.Context, uId, pId string) error {
 	stmt, names := qb.
-		Delete(PARTY_FAVORITES).
+		Delete(FAVORITE_PARTIES).
 		Where(qb.Eq("user_id")).
 		Where(qb.Eq("party_id")).
 		ToCql()
@@ -114,7 +114,7 @@ func (r *favoritePartyRepository) GetFavoritePartiesByUser(ctx context.Context, 
 
 func (r *favoritePartyRepository) GetFavorisingUsersByParty(ctx context.Context, pId string, page []byte, limit uint64) (result []datastruct.FavoriteParty, nextPage []byte, err error) {
 	stmt, names := qb.
-		Select(PARTY_FAVORITES).
+		Select(FAVORITE_PARTIES).
 		Where(qb.Eq("party_id")).
 		ToCql()
 

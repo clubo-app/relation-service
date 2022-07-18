@@ -16,8 +16,8 @@ type consumer struct {
 	ps     service.FavoriteParty
 }
 
-func New(stream stream.Stream, fs service.FriendRelationService) consumer {
-	return consumer{stream: stream, fs: fs}
+func New(stream stream.Stream, fs service.FriendRelationService, ps service.FavoriteParty) consumer {
+	return consumer{stream: stream, fs: fs, ps: ps}
 }
 
 func (c consumer) Start() {

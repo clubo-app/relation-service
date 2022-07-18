@@ -33,10 +33,11 @@ func main() {
 	dao := repository.NewDAO(cqlx)
 
 	fs := dao.NewFriendRelationRepository()
+	ps := dao.NewFavoritePartyRepository()
 
-	con := consumer.New(stream, fs)
+	con := consumer.New(stream, fs, ps)
 	go con.Start()
 
-	r := rpc.NewRelationServer(fs, dao.NewFavoritePartyRepository(), stream)
+	r := rpc.NewRelationServer(fs, ps, stream)
 	rpc.Start(r, c.PORT)
 }
