@@ -45,6 +45,7 @@ type FriendRelationRepository interface {
 
 type friendRelationRepository struct {
 	sess *gocqlx.Session
+	val  *validator.Validate
 }
 
 func (r *friendRelationRepository) CreateFriendRequest(ctx context.Context, uId string, fId string) error {
@@ -55,8 +56,7 @@ func (r *friendRelationRepository) CreateFriendRequest(ctx context.Context, uId 
 		RequestedAt: time.Now(),
 	}
 
-	v := validator.New()
-	err := v.Struct(fr)
+	err := r.val.StructCtx(ctx, fr)
 	if err != nil {
 		return err
 	}

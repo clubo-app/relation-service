@@ -4,13 +4,9 @@ import (
 	"strings"
 
 	"github.com/clubo-app/packages/cqlx"
+	"github.com/go-playground/validator/v10"
 	"github.com/scylladb/gocqlx/v2"
 )
-
-type Dao interface {
-	NewFriendRelationRepository() FriendRelationRepository
-	NewFavoritePartyRepository() FavoritePartyRepository
-}
 
 type dao struct {
 	sess *gocqlx.Session
@@ -32,14 +28,14 @@ func NewDB(keyspace, hosts string) (*gocqlx.Session, error) {
 	return &session, nil
 }
 
-func NewDAO(sess *gocqlx.Session) Dao {
-	return &dao{sess: sess}
+func NewDAO(sess *gocqlx.Session) dao {
+	return dao{sess: sess}
 }
 
-func (d *dao) NewFriendRelationRepository() FriendRelationRepository {
-	return &friendRelationRepository{sess: d.sess}
+func (d *dao) NewFriendRelationRepository(val *validator.Validate) FriendRelationRepository {
+	return &friendRelationRepository{sess: d.sess, val: val}
 }
 
-func (d *dao) NewFavoritePartyRepository() FavoritePartyRepository {
-	return &favoritePartyRepository{sess: d.sess}
+func (d *dao) NewFavoritePartyRepository(val *validator.Validate) FavoritePartyRepository {
+	return &favoritePartyRepository{sess: d.sess, val: val}
 }

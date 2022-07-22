@@ -8,6 +8,7 @@ import (
 	"github.com/clubo-app/relation-service/consumer"
 	"github.com/clubo-app/relation-service/repository"
 	"github.com/clubo-app/relation-service/rpc"
+	"github.com/go-playground/validator/v10"
 	"github.com/nats-io/nats.go"
 )
 
@@ -31,9 +32,10 @@ func main() {
 	defer cqlx.Close()
 
 	dao := repository.NewDAO(cqlx)
+	val := validator.New()
 
-	fs := dao.NewFriendRelationRepository()
-	ps := dao.NewFavoritePartyRepository()
+	fs := dao.NewFriendRelationRepository(val)
+	ps := dao.NewFavoritePartyRepository(val)
 
 	con := consumer.New(stream, fs, ps)
 	go con.Start()

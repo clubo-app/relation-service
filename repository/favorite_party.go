@@ -41,11 +41,11 @@ type FavoritePartyRepository interface {
 
 type favoritePartyRepository struct {
 	sess *gocqlx.Session
+	val  *validator.Validate
 }
 
 func (r *favoritePartyRepository) FavorParty(ctx context.Context, fp datastruct.FavoriteParty) (datastruct.FavoriteParty, error) {
-	v := validator.New()
-	err := v.Struct(fp)
+	err := r.val.Struct(fp)
 	if err != nil {
 		return datastruct.FavoriteParty{}, err
 	}
