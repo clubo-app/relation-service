@@ -3,7 +3,7 @@ module github.com/clubo-app/relation-service
 go 1.18
 
 require (
-	github.com/clubo-app/packages v0.0.0-20220716201225-65ced0466d5f
+	github.com/clubo-app/packages v0.0.0-20220729192332-823ea5ac26cc
 	github.com/clubo-app/protobuf v0.0.0-20220717171908-198902654e25
 	github.com/go-playground/validator/v10 v10.11.0
 	github.com/nats-io/nats.go v1.16.0
@@ -19,7 +19,7 @@ require (
 	github.com/fsnotify/fsnotify v1.5.4 // indirect
 	github.com/go-playground/locales v0.14.0 // indirect
 	github.com/go-playground/universal-translator v0.18.0 // indirect
-	github.com/gocql/gocql v1.1.0 // indirect
+	github.com/gocql/gocql v1.2.0 // indirect
 	github.com/gofiber/fiber/v2 v2.34.0 // indirect
 	github.com/golang/protobuf v1.5.2 // indirect
 	github.com/golang/snappy v0.0.4 // indirect
